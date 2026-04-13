@@ -2,23 +2,8 @@
 
 import { useEffect, useState } from "react"
 
-type Contact = {
-  full_name: string
-  title: string
-  email: string
-  personalized_subject?: string
-  personalized_email?: string
-}
-
-type Brand = {
-  id: string
-  brand_name: string
-  why_now: string
-  contacts: Contact[]
-}
-
 export default function Home() {
-  const [report, setReport] = useState<Brand[]>([])
+  const [report, setReport] = useState([])
 
   async function load() {
     const res = await fetch("/api/reports/latest")
@@ -31,7 +16,7 @@ export default function Home() {
     load()
   }
 
-  function openGmail(email: string, subject: string, body: string) {
+  function openGmail(email, subject, body) {
     const url = `https://mail.google.com/mail/?view=cm&fs=1&to=${email}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
     window.open(url, "_blank")
   }
