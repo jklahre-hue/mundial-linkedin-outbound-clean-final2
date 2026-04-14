@@ -134,17 +134,62 @@ export default function Home() {
     }
   }
 
-  const topAccounts = useMemo(() => {
-    const scored = [...accounts].map((account) => {
-      let score = 50
-      if ((account.priority || "").toUpperCase() === "A") score += 20
-      if (["QSR", "Retail", "CPG", "Automotive"].includes(account.category)) score += 10
-      if (account.notes) score += 10
-      return { ...account, score }
-    })
+const topAccounts = useMemo(() => {
+  const scored = [...accounts].map((account) => {
+    let score = 50
 
-    return scored.sort((a, b) => b.score - a.score).slice(0, 4)
-  }, [accounts])
+    const priority = (account.priority || "").toUpperCase()
+    const category = (account.category || "").toLowerCase()
+    const notes = (account.notes || "").toLowerCase()
+
+    if (priority === "A") score += 20
+    if (priority === "B") score += 10
+
+    if (["qsr", "retail", "cpg", "automotive"].includes(category)) score += 15
+
+    if (
+      notes.includes("promotion") ||
+      notes.includes("promotional") ||
+      notes.includes("lto") ||
+      notes.includes("launch") ||
+      notes.includes("product launch")
+    ) {
+      score += 15
+    }
+
+    if (
+      notes.includes("multicultural") ||
+      notes.includes("hispanic") ||
+      notes.includes("growth audience") ||
+      notes.includes("growth audiences")
+    ) {
+      score += 15
+    }
+
+    if (
+      notes.includes("contextual") ||
+      notes.includes("privacy-safe") ||
+      notes.includes("cookie-less") ||
+      notes.includes("cookieless")
+    ) {
+      score += 10
+    }
+
+    if (
+      notes.includes("culture") ||
+      notes.includes("cultural") ||
+      notes.includes("in-culture") ||
+      notes.includes("sports") ||
+      notes.includes("seasonal")
+    ) {
+      score += 10
+    }
+
+    return { ...account, score }
+  })
+
+  return scored.sort((a, b) => b.score - a.score).slice(0, 4)
+}, [accounts])
 
   return (
     <div style={{ padding: 24, fontFamily: "Arial, sans-serif", maxWidth: 1000, margin: "0 auto" }}>
