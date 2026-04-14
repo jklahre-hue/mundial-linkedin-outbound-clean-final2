@@ -30,7 +30,7 @@ function normalizeAccountRow(row) {
       row["brand name"] ||
       row.company ||
       row.advertiser ||
-      row.account ||
+      row["account name"] ||
       ""
     ).trim(),
     category: String(
@@ -65,6 +65,8 @@ export default function Home() {
     },
   ])
   const [uploadMessage, setUploadMessage] = useState("No file uploaded yet.")
+  const [pitches, setPitches] = useState({})
+  const [loadingBrand, setLoadingBrand] = useState("")
 
   async function handleFileUpload(file) {
     if (!file) return
@@ -99,6 +101,39 @@ export default function Home() {
     }
   }
 
+  async function generatePitch(account) {
+    setLoadingBrand(account.brand)
+
+    try {
+      const res = await fetch("/api/pitch", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(account)
+      })
+
+      const data = await res.json()
+
+      setPitches((prev) => ({
+        ...prev,
+        [account.brand]: data
+      }))
+    } catch (error) {
+      console.error(error)
+      setPitches((prev) => ({
+        ...prev,
+        [account.brand]: {
+          why_now: "Pitch generation failed.",
+          subject_line: "",
+          email_body: ""
+        }
+      }))
+    } finally {
+      setLoadingBrand("")
+    }
+  }
+
   const topAccounts = useMemo(() => {
     const scored = [...accounts].map((account) => {
       let score = 50
@@ -114,7 +149,7 @@ export default function Home() {
   return (
     <div style={{ padding: 24, fontFamily: "Arial, sans-serif", maxWidth: 1000, margin: "0 auto" }}>
       <h1>Mundial LinkedIn Outbound App</h1>
-      <p>Upload your Excel or CSV account list and preview the top accounts inside the app.</p>
+      <p>Upload your Excel or CSV account list, rank top accounts, and generate AI outreach.</p>
 
       <div
         style={{
@@ -162,41 +197,27 @@ export default function Home() {
               <div>Priority: {account.priority || "—"}</div>
               <div>Notes: {account.notes || "—"}</div>
               <div>Score: {account.score}</div>
+
+              <div style={{ marginTop: 12 }}>
+                <button
+                  onClick={() => generatePitch(account)}
+                  style={{ padding: "8px 12px" }}
+                >
+                  {loadingBrand === account.brand ? "Generating..." : "Generate AI Pitch"}
+                </button>
+              </div>
+
+              {pitches[account.brand] && (
+                <div style={{ marginTop: 16, padding: 12, background: "#fafafa", borderRadius: 6 }}>
+                  <div><strong>Why now:</strong> {pitches[account.brand].why_now}</div>
+                  <div style={{ marginTop: 8 }}><strong>Subject line:</strong> {pitches[account.brand].subject_line}</div>
+                  <div style={{ marginTop: 8 }}><strong>Email:</strong></div>
+                  <div style={{ whiteSpace: "pre-wrap" }}>{pitches[account.brand].email_body}</div>
+                </div>
+              )}
             </div>
           ))
         )}
-      </div>
-
-      <div
-        style={{
-          border: "1px solid #ddd",
-          borderRadius: 8,
-          padding: 16,
-        }}
-      >
-        <h2>Raw Account Preview</h2>
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>Brand</th>
-                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>Category</th>
-                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>Priority</th>
-                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {accounts.map((account, i) => (
-                <tr key={`${account.brand}-${i}`}>
-                  <td style={{ borderBottom: "1px solid #eee", padding: 8 }}>{account.brand}</td>
-                  <td style={{ borderBottom: "1px solid #eee", padding: 8 }}>{account.category}</td>
-                  <td style={{ borderBottom: "1px solid #eee", padding: 8 }}>{account.priority}</td>
-                  <td style={{ borderBottom: "1px solid #eee", padding: 8 }}>{account.notes}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
       </div>
     </div>
   )
