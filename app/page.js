@@ -241,7 +241,7 @@ const topAccounts = useMemo(() => {
               <div>Category: {account.category || "—"}</div>
               <div>Priority: {account.priority || "—"}</div>
               <div>Notes: {account.notes || "—"}</div>
-              <div>Score: {account.score}</div>
+              <div><strong>Mundial Fit Score:</strong> {account.score}</div>
 
               <div style={{ marginTop: 12 }}>
                 <button
