@@ -9,8 +9,14 @@ export async function POST(req) {
   try {
     const { brand, category, priority, notes } = await req.json()
 
-    const prompt = `
+const prompt = `
 You are writing outbound sales messaging for Mundial Media.
+
+Mundial Media value proposition:
+- reaches multicultural and growth audiences
+- uses privacy-safe contextual targeting
+- helps brands show up in culturally relevant, in-culture environments
+- aligns the right audience, right content, and right ad
 
 Return valid JSON with exactly these keys:
 why_now
@@ -23,10 +29,11 @@ Priority: ${priority}
 Notes: ${notes}
 
 Instructions:
-- why_now should be 1-2 sentences
-- subject_line should be concise
+- why_now should explain why this account is a fit for Mundial Media specifically
+- subject_line should be concise and sales-ready
 - email_body should be a short outreach email
-- tone should be professional, sharp, and relevant
+- make the messaging sound sharp, relevant, and grounded in Mundial Media's value
+- reference multicultural relevance, growth audiences, contextual fit, or privacy-safe value when appropriate
 `
 
     const response = await client.responses.create({
