@@ -125,12 +125,24 @@ export default function Home() {
         })
       })
 
-      const data = await res.json()
+const data = await res.json()
 
-      setPitches((prev) => ({
-        ...prev,
-        [account.brand]: data
-      }))
+if (!res.ok) {
+  setPitches((prev) => ({
+    ...prev,
+    [account.brand]: {
+      why_now: data.error || "Pitch generation failed.",
+      subject_line: "",
+      email_body: ""
+    }
+  }))
+  return
+}
+
+setPitches((prev) => ({
+  ...prev,
+  [account.brand]: data
+}))
     } catch (error) {
       console.error(error)
       setPitches((prev) => ({
