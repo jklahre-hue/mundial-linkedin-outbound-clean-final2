@@ -1,5 +1,5 @@
 {
-  "name": "mundial-linkedin-outbound-app-clean",
+  "name": "mundial-linkedin-outbound-clean-final2",
   "version": "1.0.0",
   "private": true,
   "scripts": {
@@ -7,10 +7,11 @@
     "build": "next build",
     "start": "next start"
   },
- "dependencies": {
-  "next": "14.2.35",
-  "react": "18.2.0",
-  "react-dom": "18.2.0",
-  "xlsx": "^0.18.5"
-}
+  "dependencies": {
+    "next": "14.2.35",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "xlsx": "^0.18.5",
+    "openai": "^4.104.0"
+  }
 }
