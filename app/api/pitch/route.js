@@ -7,9 +7,9 @@ const client = new OpenAI({
 
 export async function POST(req) {
   try {
-const { brand, category, priority, notes, recent_news } = await req.json()    
+    const { brand, category, priority, notes, recent_news } = await req.json()
 
-const prompt = `
+    const prompt = `
 You are writing outbound sales messaging for Mundial Media.
 
 Mundial Media value proposition:
@@ -34,8 +34,6 @@ Instructions:
 - use the recent news when it is relevant
 - subject_line should be concise and sales-ready
 - email_body should be a short outreach email
-- make the messaging sound sharp, relevant, and grounded in Mundial Media's value
-- reference multicultural relevance, growth audiences, contextual fit, or privacy-safe value when appropriate
 `
 
     const response = await client.responses.create({
@@ -58,9 +56,14 @@ Instructions:
 
     return NextResponse.json(parsed)
   } catch (error) {
-    console.error(error)
+    console.error("PITCH ROUTE ERROR:", error)
     return NextResponse.json(
-      { error: "Pitch generation failed." },
+      {
+        why_now: "Pitch generation failed.",
+        subject_line: "",
+        email_body: "",
+        error: String(error?.message || error || "Unknown error"),
+      },
       { status: 500 }
     )
   }
