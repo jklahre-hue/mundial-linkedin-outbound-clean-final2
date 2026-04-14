@@ -25,10 +25,33 @@ function parseCsv(text) {
 
 function normalizeAccountRow(row) {
   return {
-    brand: String(row.brand || row["brand name"] || "").trim(),
-    category: String(row.category || "").trim(),
-    priority: String(row.priority || row["priority tier"] || "").trim(),
-    notes: String(row.notes || "").trim(),
+    brand: String(
+      row.brand ||
+      row["brand name"] ||
+      row.company ||
+      row.advertiser ||
+      row.account ||
+      ""
+    ).trim(),
+    category: String(
+      row.category ||
+      row.vertical ||
+      row.industry ||
+      ""
+    ).trim(),
+    priority: String(
+      row.priority ||
+      row["priority tier"] ||
+      row.tier ||
+      ""
+    ).trim(),
+    notes: String(
+      row.notes ||
+      row.comments ||
+      row.comment ||
+      row["sales notes"] ||
+      ""
+    ).trim(),
   }
 }
 
