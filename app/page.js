@@ -143,6 +143,11 @@ setPitches((prev) => ({
   ...prev,
   [account.brand]: data
 }))
+
+setPitches((prev) => ({
+  ...prev,
+  [account.brand]: data
+}))
     } catch (error) {
       console.error(error)
       setPitches((prev) => ({
