@@ -52,6 +52,13 @@ function normalizeAccountRow(row) {
       row["sales notes"] ||
       ""
     ).trim(),
+    recent_news: String(
+      row["recent news"] ||
+      row.news ||
+      row.headline ||
+      row["latest news"] ||
+      ""
+    ).trim(),
   }
 }
 
@@ -62,11 +69,13 @@ export default function Home() {
       category: "QSR",
       priority: "A",
       notes: "Strong QSR fit and promotional cadence.",
+      recent_news: "Seasonal promotions and menu visibility create a timely outreach moment.",
     },
   ])
   const [uploadMessage, setUploadMessage] = useState("No file uploaded yet.")
   const [pitches, setPitches] = useState({})
   const [loadingBrand, setLoadingBrand] = useState("")
+  const [manualNews, setManualNews] = useState({})
 
   async function handleFileUpload(file) {
     if (!file) return
@@ -110,7 +119,10 @@ export default function Home() {
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify(account)
+        body: JSON.stringify({
+          ...account,
+          recent_news: manualNews[account.brand] || account.recent_news || ""
+        })
       })
 
       const data = await res.json()
@@ -134,62 +146,62 @@ export default function Home() {
     }
   }
 
-const topAccounts = useMemo(() => {
-  const scored = [...accounts].map((account) => {
-    let score = 50
+  const topAccounts = useMemo(() => {
+    const scored = [...accounts].map((account) => {
+      let score = 50
 
-    const priority = (account.priority || "").toUpperCase()
-    const category = (account.category || "").toLowerCase()
-    const notes = (account.notes || "").toLowerCase()
+      const priority = (account.priority || "").toUpperCase()
+      const category = (account.category || "").toLowerCase()
+      const notes = (account.notes || "").toLowerCase()
 
-    if (priority === "A") score += 20
-    if (priority === "B") score += 10
+      if (priority === "A") score += 20
+      if (priority === "B") score += 10
 
-    if (["qsr", "retail", "cpg", "automotive"].includes(category)) score += 15
+      if (["qsr", "retail", "cpg", "automotive"].includes(category)) score += 15
 
-    if (
-      notes.includes("promotion") ||
-      notes.includes("promotional") ||
-      notes.includes("lto") ||
-      notes.includes("launch") ||
-      notes.includes("product launch")
-    ) {
-      score += 15
-    }
+      if (
+        notes.includes("promotion") ||
+        notes.includes("promotional") ||
+        notes.includes("lto") ||
+        notes.includes("launch") ||
+        notes.includes("product launch")
+      ) {
+        score += 15
+      }
 
-    if (
-      notes.includes("multicultural") ||
-      notes.includes("hispanic") ||
-      notes.includes("growth audience") ||
-      notes.includes("growth audiences")
-    ) {
-      score += 15
-    }
+      if (
+        notes.includes("multicultural") ||
+        notes.includes("hispanic") ||
+        notes.includes("growth audience") ||
+        notes.includes("growth audiences")
+      ) {
+        score += 15
+      }
 
-    if (
-      notes.includes("contextual") ||
-      notes.includes("privacy-safe") ||
-      notes.includes("cookie-less") ||
-      notes.includes("cookieless")
-    ) {
-      score += 10
-    }
+      if (
+        notes.includes("contextual") ||
+        notes.includes("privacy-safe") ||
+        notes.includes("cookie-less") ||
+        notes.includes("cookieless")
+      ) {
+        score += 10
+      }
 
-    if (
-      notes.includes("culture") ||
-      notes.includes("cultural") ||
-      notes.includes("in-culture") ||
-      notes.includes("sports") ||
-      notes.includes("seasonal")
-    ) {
-      score += 10
-    }
+      if (
+        notes.includes("culture") ||
+        notes.includes("cultural") ||
+        notes.includes("in-culture") ||
+        notes.includes("sports") ||
+        notes.includes("seasonal")
+      ) {
+        score += 10
+      }
 
-    return { ...account, score }
-  })
+      return { ...account, score }
+    })
 
-  return scored.sort((a, b) => b.score - a.score).slice(0, 4)
-}, [accounts])
+    return scored.sort((a, b) => b.score - a.score).slice(0, 4)
+  }, [accounts])
 
   return (
     <div style={{ padding: 24, fontFamily: "Arial, sans-serif", maxWidth: 1000, margin: "0 auto" }}>
@@ -206,7 +218,7 @@ const topAccounts = useMemo(() => {
         }}
       >
         <h2>Upload Account List</h2>
-        <p style={{ marginTop: 0 }}>Supported fields: brand, category, priority, notes</p>
+        <p style={{ marginTop: 0 }}>Supported fields: brand, category, priority, notes, recent news</p>
         <input
           type="file"
           accept=".csv,.xlsx,.xls"
@@ -241,9 +253,25 @@ const topAccounts = useMemo(() => {
               <div>Category: {account.category || "—"}</div>
               <div>Priority: {account.priority || "—"}</div>
               <div>Notes: {account.notes || "—"}</div>
+              <div>Recent News: {account.recent_news || "—"}</div>
               <div><strong>Mundial Fit Score:</strong> {account.score}</div>
 
               <div style={{ marginTop: 12 }}>
+                <div style={{ marginBottom: 8 }}>
+                  <strong>Manual Recent News Override:</strong>
+                </div>
+                <textarea
+                  value={manualNews[account.brand] || ""}
+                  onChange={(e) =>
+                    setManualNews((prev) => ({
+                      ...prev,
+                      [account.brand]: e.target.value
+                    }))
+                  }
+                  placeholder="Paste a current headline, campaign update, product launch, or seasonal angle here."
+                  rows={4}
+                  style={{ width: "100%", marginBottom: 10 }}
+                />
                 <button
                   onClick={() => generatePitch(account)}
                   style={{ padding: "8px 12px" }}
@@ -263,6 +291,40 @@ const topAccounts = useMemo(() => {
             </div>
           ))
         )}
+      </div>
+
+      <div
+        style={{
+          border: "1px solid #ddd",
+          borderRadius: 8,
+          padding: 16,
+        }}
+      >
+        <h2>Raw Account Preview</h2>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>Brand</th>
+                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>Category</th>
+                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>Priority</th>
+                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>Notes</th>
+                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>Recent News</th>
+              </tr>
+            </thead>
+            <tbody>
+              {accounts.map((account, i) => (
+                <tr key={`${account.brand}-${i}`}>
+                  <td style={{ borderBottom: "1px solid #eee", padding: 8 }}>{account.brand}</td>
+                  <td style={{ borderBottom: "1px solid #eee", padding: 8 }}>{account.category}</td>
+                  <td style={{ borderBottom: "1px solid #eee", padding: 8 }}>{account.priority}</td>
+                  <td style={{ borderBottom: "1px solid #eee", padding: 8 }}>{account.notes}</td>
+                  <td style={{ borderBottom: "1px solid #eee", padding: 8 }}>{account.recent_news}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   )
