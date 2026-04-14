@@ -2,27 +2,24 @@ import { NextResponse } from "next/server"
 
 export async function GET() {
   return NextResponse.json({
-    brands: [
+    weekly_pitches: [
       {
-        id: "1",
-        brand_name: "Pizza Hut",
-        why_now: "Strong QSR fit with relevant digital media and marketing leads.",
-        contacts: [
-          {
-            full_name: "Sofia Martinez",
-            title: "Director, Digital Media",
-            email: "sofia@example.com",
-            personalized_subject: "Quick idea for Pizza Hut",
-            personalized_email: "Hi Sofia, I wanted to reach out because your role in digital media at Pizza Hut feels highly relevant to what we do at Mundial Media. Would love to share a quick idea if useful."
-          },
-          {
-            full_name: "Jordan Ellis",
-            title: "VP, Digital Marketing",
-            email: "jordan@example.com",
-            personalized_subject: "Quick idea for Pizza Hut",
-            personalized_email: "Hi Jordan, your role in digital marketing at Pizza Hut stood out to me as highly relevant to Mundial Media. Open to a quick intro?"
-          }
-        ]
+        brand: "Pizza Hut",
+        category: "QSR",
+        priority: "A",
+        score: 100,
+        why_now: "Pizza Hut is a strong fit for Mundial Media because its promotional cadence and broad growth-audience relevance create a timely contextual opportunity.",
+        subject_line: "Quick idea for Pizza Hut",
+        email_body: "Hi there, I wanted to reach out because Pizza Hut feels like a strong fit for Mundial Media’s contextual, privacy-safe audience strategy. Would love to share a quick idea if useful.",
+      },
+      {
+        brand: "Chobani",
+        category: "CPG",
+        priority: "A",
+        score: 95,
+        why_now: "Chobani’s wellness relevance and growth-audience alignment make it a strong contextual fit for Mundial Media.",
+        subject_line: "Quick idea for Chobani",
+        email_body: "Hi there, Chobani feels like a very natural fit for Mundial Media’s contextual and multicultural audience strategy. Open to a quick intro?",
       }
     ]
   })
