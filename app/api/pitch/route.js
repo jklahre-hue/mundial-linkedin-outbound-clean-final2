@@ -7,7 +7,7 @@ const client = new OpenAI({
 
 export async function POST(req) {
   try {
-    const { brand, category, priority, notes } = await req.json()
+const { brand, category, priority, notes, recent_news } = await req.json()    
 
 const prompt = `
 You are writing outbound sales messaging for Mundial Media.
@@ -27,9 +27,11 @@ Brand: ${brand}
 Category: ${category}
 Priority: ${priority}
 Notes: ${notes}
+Recent News: ${recent_news}
 
 Instructions:
 - why_now should explain why this account is a fit for Mundial Media specifically
+- use the recent news when it is relevant
 - subject_line should be concise and sales-ready
 - email_body should be a short outreach email
 - make the messaging sound sharp, relevant, and grounded in Mundial Media's value
