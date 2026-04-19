@@ -27,53 +27,63 @@ export default function Home() {
     }
   }
 
-  async function generatePitch(account) {
-    setLoadingBrand(account.brand)
+ async function generatePitch(account) {
+  setLoadingBrand(account.brand)
 
-    try {
-      const res = await fetch("/api/pitch", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          ...account,
-          recent_news: manualNews[account.brand] || account.recent_news || ""
-        })
+  try {
+    // 🔥 STEP 1: fetch news
+    const newsRes = await fetch("/api/news", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ brand: account.brand })
+    })
+
+    const newsData = await newsRes.json()
+
+    const newsText = (newsData.headlines || []).join(" | ")
+
+    // 🔥 STEP 2: send to AI
+    const res = await fetch("/api/pitch", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        ...account,
+        recent_news:
+          manualNews[account.brand] ||
+          newsText ||
+          account.recent_news ||
+          ""
       })
+    })
 
-      const data = await res.json()
+    const data = await res.json()
 
-      if (!res.ok) {
-        setPitches((prev) => ({
-          ...prev,
-          [account.brand]: {
-            why_now: data.error || "Pitch generation failed.",
-            subject_line: "",
-            email_body: ""
-          }
-        }))
-        return
-      }
-
-      setPitches((prev) => ({
-        ...prev,
-        [account.brand]: data
-      }))
-    } catch (error) {
-      console.error(error)
+    if (!res.ok) {
       setPitches((prev) => ({
         ...prev,
         [account.brand]: {
-          why_now: "Pitch generation failed.",
+          why_now: data.error || "Pitch generation failed.",
           subject_line: "",
           email_body: ""
         }
       }))
-    } finally {
-      setLoadingBrand("")
+      return
     }
+
+    setPitches((prev) => ({
+      ...prev,
+      [account.brand]: data
+    }))
+  } catch (error) {
+    console.error(error)
+  } finally {
+    setLoadingBrand("")
   }
+}
 
   const topAccounts = useMemo(() => {
     const scored = [...accounts].map((account) => {
