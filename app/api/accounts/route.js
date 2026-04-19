@@ -30,88 +30,34 @@ function parseCsvLine(line) {
   return result
 }
 
-function parseCsv(text) {
-  const lines = text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-
-  if (!lines.length) return []
-
-  const headers = parseCsvLine(lines[0]).map((h) =>
-    h.trim().toLowerCase().replace(/\s+/g, " ")
-  )
-
-  return lines.slice(1).map((line) => {
-    const values = parseCsvLine(line)
-    const row = {}
-
-    headers.forEach((header, i) => {
-      row[header] = (values[i] || "").trim()
-    })
-
-    return row
-  })
-}
-
-function normalizeAccountRow(row) {
-  return {
-    brand: String(
-      row.brand ||
-      row["brand name"] ||
-      row.company ||
-      row.advertiser ||
-      row["account name"] ||
-      ""
-    ).trim(),
-    category: String(
-      row.category ||
-      row.vertical ||
-      row.industry ||
-      ""
-    ).trim(),
-    priority: String(
-      row.priority ||
-      row["priority tier"] ||
-      row.tier ||
-      ""
-    ).trim(),
-    notes: String(
-      row.notes ||
-      row.comments ||
-      row.comment ||
-      row["sales notes"] ||
-      ""
-    ).trim(),
-    recent_news: String(
-      row["recent news"] ||
-      row["latest news"] ||
-      row.news ||
-      row.headline ||
-      ""
-    ).trim(),
-  }
-}
-
 export async function GET() {
   try {
     const filePath = path.join(process.cwd(), "data", "accounts.csv")
     const csvText = fs.readFileSync(filePath, "utf8")
 
-    const parsed = parseCsv(csvText)
-      .map(normalizeAccountRow)
-      .filter((row) => row.brand)
+    const lines = csvText
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+
+    const headerLine = lines[0] || ""
+    const firstDataLine = lines[1] || ""
+
+    const headers = parseCsvLine(headerLine)
+    const firstRow = parseCsvLine(firstDataLine)
 
     return NextResponse.json({
-      accounts: parsed,
-      count: parsed.length,
+      filePath,
+      lineCount: lines.length,
+      headerLine,
+      firstDataLine,
+      headers,
+      firstRow,
     })
   } catch (error) {
-    console.error("ACCOUNTS ROUTE ERROR:", error)
-
     return NextResponse.json(
       {
-        error: "Could not load accounts.",
+        error: "Could not read accounts file.",
         details: String(error?.message || error),
       },
       { status: 500 }
