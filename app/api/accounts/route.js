@@ -1,26 +1,7 @@
 import fs from "fs"
 import path from "path"
+import * as XLSX from "xlsx"
 import { NextResponse } from "next/server"
-
-function parseCsv(text) {
-  const lines = text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-
-  if (!lines.length) return []
-
-  const headers = lines[0].split(",").map((h) => h.trim().toLowerCase())
-
-  return lines.slice(1).map((line) => {
-    const values = line.split(",")
-    const row = {}
-    headers.forEach((header, i) => {
-      row[header] = (values[i] || "").trim()
-    })
-    return row
-  })
-}
 
 function normalizeAccountRow(row) {
   return {
@@ -28,23 +9,32 @@ function normalizeAccountRow(row) {
     category: String(row.category || "").trim(),
     priority: String(row.priority || "").trim(),
     notes: String(row.notes || "").trim(),
-    recent_news: String(row["recent news"] || row.recent_news || "").trim(),
+    recent_news: String(row["recent news"] || "").trim(),
   }
 }
 
 export async function GET() {
   try {
     const filePath = path.join(process.cwd(), "data", "accounts.csv")
-    const csvText = fs.readFileSync(filePath, "utf8")
-    const parsed = parseCsv(csvText).map(normalizeAccountRow).filter((row) => row.brand)
+    const fileBuffer = fs.readFileSync(filePath)
+
+    const workbook = XLSX.read(fileBuffer, { type: "buffer" })
+    const sheet = workbook.Sheets[workbook.SheetNames[0]]
+
+    const json = XLSX.utils.sheet_to_json(sheet, { defval: "" })
+
+    const parsed = json
+      .map(normalizeAccountRow)
+      .filter((row) => row.brand)
 
     return NextResponse.json({
       accounts: parsed,
     })
   } catch (error) {
     console.error("ACCOUNTS ROUTE ERROR:", error)
+
     return NextResponse.json(
-      { error: "Could not load master accounts file." },
+      { error: "Could not load accounts." },
       { status: 500 }
     )
   }
