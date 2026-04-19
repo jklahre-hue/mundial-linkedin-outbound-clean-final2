@@ -1,63 +1,74 @@
 import fs from "fs"
 import path from "path"
+import * as XLSX from "xlsx"
 import { NextResponse } from "next/server"
 
-function parseCsvLine(line) {
-  const result = []
-  let current = ""
-  let inQuotes = false
+function normalizeAccountRow(row) {
+  return {
+    brand: String(
+      row.brand ||
+      row.Brand ||
+      row["brand name"] ||
+      row["Brand Name"] ||
+      ""
+    ).trim(),
 
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i]
-    const next = line[i + 1]
+    category: String(
+      row.category ||
+      row.Category ||
+      ""
+    ).trim(),
 
-    if (char === '"') {
-      if (inQuotes && next === '"') {
-        current += '"'
-        i++
-      } else {
-        inQuotes = !inQuotes
-      }
-    } else if (char === "," && !inQuotes) {
-      result.push(current.trim())
-      current = ""
-    } else {
-      current += char
-    }
+    priority: String(
+      row.priority ||
+      row.Priority ||
+      ""
+    ).trim(),
+
+    notes: String(
+      row.notes ||
+      row.Notes ||
+      ""
+    ).trim(),
+
+    recent_news: String(
+      row["recent news"] ||
+      row["Recent News"] ||
+      row.recent_news ||
+      ""
+    ).trim(),
   }
-
-  result.push(current.trim())
-  return result
 }
 
 export async function GET() {
   try {
     const filePath = path.join(process.cwd(), "data", "accounts.csv")
-    const csvText = fs.readFileSync(filePath, "utf8")
 
-    const lines = csvText
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean)
+    // Read file
+    const fileBuffer = fs.readFileSync(filePath)
 
-    const headerLine = lines[0] || ""
-    const firstDataLine = lines[1] || ""
+    // Parse with XLSX (works for CSV too)
+    const workbook = XLSX.read(fileBuffer, { type: "buffer" })
+    const sheet = workbook.Sheets[workbook.SheetNames[0]]
 
-    const headers = parseCsvLine(headerLine)
-    const firstRow = parseCsvLine(firstDataLine)
+    const json = XLSX.utils.sheet_to_json(sheet, {
+      defval: "",
+    })
+
+    const parsed = json
+      .map(normalizeAccountRow)
+      .filter((row) => row.brand)
 
     return NextResponse.json({
-      filePath,
-      lineCount: lines.length,
-      headerLine,
-      firstDataLine,
-      headers,
-      firstRow,
+      accounts: parsed,
+      count: parsed.length,
     })
   } catch (error) {
+    console.error("ACCOUNTS ROUTE ERROR:", error)
+
     return NextResponse.json(
       {
-        error: "Could not read accounts file.",
+        error: "Could not load accounts.",
         details: String(error?.message || error),
       },
       { status: 500 }
