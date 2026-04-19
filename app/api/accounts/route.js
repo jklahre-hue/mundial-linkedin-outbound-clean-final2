@@ -1,7 +1,7 @@
 import fs from "fs"
 import path from "path"
-import * as XLSX from "xlsx"
 import { NextResponse } from "next/server"
+import XLSX from "xlsx"
 
 function normalizeAccountRow(row) {
   return {
