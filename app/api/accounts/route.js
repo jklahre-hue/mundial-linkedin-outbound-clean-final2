@@ -21,10 +21,22 @@ export async function GET() {
   try {
     const filePath = path.join(process.cwd(), "data", "accounts.xlsx")
 
+    const exists = fs.existsSync(filePath)
+    if (!exists) {
+      return NextResponse.json(
+        {
+          error: "accounts.xlsx not found",
+          filePath,
+        },
+        { status: 500 }
+      )
+    }
+
     const fileBuffer = fs.readFileSync(filePath)
 
     const workbook = XLSX.read(fileBuffer, { type: "buffer" })
-    const sheet = workbook.Sheets[workbook.SheetNames[0]]
+    const sheetName = workbook.SheetNames[0]
+    const sheet = workbook.Sheets[sheetName]
 
     const json = XLSX.utils.sheet_to_json(sheet, {
       defval: "",
@@ -37,12 +49,15 @@ export async function GET() {
     return NextResponse.json({
       accounts: parsed,
       count: parsed.length,
+      sheetName,
+      firstRow: json[0] || null,
     })
   } catch (error) {
-    console.error(error)
-
     return NextResponse.json(
-      { error: "Failed to load accounts" },
+      {
+        error: "Failed to load accounts",
+        details: String(error?.message || error),
+      },
       { status: 500 }
     )
   }
