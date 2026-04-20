@@ -2,31 +2,40 @@ import fs from "fs"
 import path from "path"
 import { NextResponse } from "next/server"
 
+function parseCSV(text) {
+  const lines = text.split("\n").map(l => l.trim()).filter(Boolean)
+
+  const headers = lines[0].split(",").map(h => h.trim().toLowerCase())
+
+  return lines.slice(1).map(line => {
+    const values = line.split(",")
+
+    const row = {}
+    headers.forEach((header, i) => {
+      row[header] = (values[i] || "").trim()
+    })
+
+    return row
+  })
+}
+
 export async function GET() {
   try {
-    const filePath = path.join(process.cwd(), "data", "accounts.json")
-    const raw = fs.readFileSync(filePath, "utf8")
-    const accounts = JSON.parse(raw)
+    const filePath = path.join(process.cwd(), "data", "accounts.csv")
 
-    const cleaned = accounts
-      .map((row) => ({
-        brand: String(row.brand || "").trim(),
-        category: String(row.category || "").trim(),
-        priority: String(row.priority || "").trim(),
-        notes: String(row.notes || "").trim(),
-        recent_news: String(row.recent_news || "").trim(),
-      }))
-      .filter((row) => row.brand)
+    const csv = fs.readFileSync(filePath, "utf8")
+
+    const parsed = parseCSV(csv).filter(row => row.brand)
 
     return NextResponse.json({
-      accounts: cleaned,
-      count: cleaned.length,
+      accounts: parsed,
+      count: parsed.length
     })
   } catch (error) {
     return NextResponse.json(
       {
         error: "Failed to load accounts",
-        details: String(error?.message || error),
+        details: String(error?.message || error)
       },
       { status: 500 }
     )
