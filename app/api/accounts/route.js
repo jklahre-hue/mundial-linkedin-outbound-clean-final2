@@ -3,7 +3,7 @@ import path from "path"
 import { NextResponse } from "next/server"
 
 function cleanHeader(header) {
-  return header
+  return String(header || "")
     .replace(/^\uFEFF/, "")
     .trim()
     .toLowerCase()
@@ -33,7 +33,7 @@ function parseCSV(text) {
 
 export async function GET() {
   try {
-    const filePath = path.join(process.cwd(), "data", "accounts.csv")
+    const filePath = path.join(process.cwd(), "public", "accounts.csv")
     const csv = fs.readFileSync(filePath, "utf8")
 
     const parsed = parseCSV(csv)
