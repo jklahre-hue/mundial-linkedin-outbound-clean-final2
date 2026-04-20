@@ -1,7 +1,6 @@
 import fs from "fs"
 import path from "path"
 import { NextResponse } from "next/server"
-import XLSX from "xlsx"
 
 function normalizeAccountRow(row) {
   return {
@@ -19,6 +18,9 @@ function normalizeAccountRow(row) {
 
 export async function GET() {
   try {
+    const xlsxModule = await import("xlsx")
+    const XLSX = xlsxModule.default || xlsxModule
+
     const filePath = path.join(process.cwd(), "data", "accounts.xlsx")
 
     const exists = fs.existsSync(filePath)
@@ -38,9 +40,7 @@ export async function GET() {
     const sheetName = workbook.SheetNames[0]
     const sheet = workbook.Sheets[sheetName]
 
-    const json = XLSX.utils.sheet_to_json(sheet, {
-      defval: "",
-    })
+    const json = XLSX.utils.sheet_to_json(sheet, { defval: "" })
 
     const parsed = json
       .map(normalizeAccountRow)
