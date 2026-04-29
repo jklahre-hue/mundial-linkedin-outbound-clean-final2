@@ -33,7 +33,7 @@ function parseCSV(text) {
   })
 }
 
-// ---------- SMART SCORING ----------
+// ---------- SCORING ----------
 function scoreAccount(account) {
   let score = 50
 
@@ -42,47 +42,50 @@ function scoreAccount(account) {
   const notes = (account.notes || "").toLowerCase()
   const news = (account.news_summary || "").toLowerCase()
   const headline = (account.best_headline || "").toLowerCase()
-
   const combined = `${notes} ${news} ${headline}`
 
-  // Priority
   if (priority === "A") score += 20
   if (priority === "B") score += 10
 
-  // Category
   if (category.includes("qsr")) score += 20
   if (category.includes("cpg")) score += 15
   if (category.includes("entertainment")) score += 15
   if (category.includes("retail")) score += 15
+  if (category.includes("financial")) score += 10
+  if (category.includes("public")) score += 10
+  if (category.includes("health")) score += 10
+  if (category.includes("auto")) score += 10
 
-  // 🔥 NEWS = HEAVY WEIGHT
   if (combined.includes("launch")) score += 35
   if (combined.includes("campaign")) score += 35
   if (combined.includes("partnership")) score += 30
-  if (combined.includes("promotion")) score += 30
-  if (combined.includes("menu")) score += 25
-  if (combined.includes("product")) score += 25
-  if (combined.includes("limited time")) score += 35
-  if (combined.includes("lto")) score += 35
-
-  // Marketing signals
+  if (combined.includes("sponsorship")) score += 30
   if (combined.includes("advertising")) score += 25
   if (combined.includes("media")) score += 20
-  if (combined.includes("sponsorship")) score += 25
+  if (combined.includes("brand campaign")) score += 35
+  if (combined.includes("new product")) score += 30
+  if (combined.includes("product line")) score += 25
+  if (combined.includes("limited time")) score += 25
+  if (combined.includes("lto")) score += 25
+  if (combined.includes("menu")) score += 20
 
-  // Mundial fit
   if (combined.includes("multicultural")) score += 35
   if (combined.includes("hispanic")) score += 35
   if (combined.includes("latino")) score += 35
   if (combined.includes("gen z")) score += 25
-  if (combined.includes("growth")) score += 25
+  if (combined.includes("growth audience")) score += 35
+  if (combined.includes("culture")) score += 20
+  if (combined.includes("cultural")) score += 20
 
-  // Timing
-  if (combined.includes("seasonal")) score += 25
+  if (combined.includes("seasonal")) score += 15
   if (combined.includes("sports")) score += 25
   if (combined.includes("world cup")) score += 40
 
-  // Penalize no news
+  if (combined.includes("contextual")) score += 20
+  if (combined.includes("privacy")) score += 20
+  if (combined.includes("cookieless")) score += 25
+  if (combined.includes("third-party cookies")) score += 25
+
   if (!news && !headline) score -= 20
 
   return score
@@ -91,42 +94,52 @@ function scoreAccount(account) {
 // ---------- NEWS FETCH ----------
 async function fetchNewsForBrand(brand) {
   if (!process.env.NEWS_API_KEY) {
-    return { headlines: [], best_headline: "", news_summary: "" }
+    return {
+      headlines: [],
+      best_headline: "",
+      news_summary: "",
+    }
   }
 
-  const query = `"${brand}" AND (campaign OR marketing OR launch OR partnership OR promotion OR menu OR product OR advertising OR media OR audience OR multicultural OR Hispanic OR sports OR seasonal OR streaming OR brand)`
+  const query = `"${brand}" AND (campaign OR marketing OR partnership OR sponsorship OR launch OR "new product" OR advertising OR media OR "brand campaign") NOT (coupon OR deal OR "weekly ad" OR discount OR ranking OR review OR recipe OR grocery)`
 
   const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(
     query
-  )}&language=en&sortBy=publishedAt&pageSize=6&apiKey=${process.env.NEWS_API_KEY}`
+  )}&language=en&sortBy=publishedAt&pageSize=8&apiKey=${process.env.NEWS_API_KEY}`
 
-  const res = await fetch(url)
-  const data = await res.json()
+  const response = await fetch(url)
+  const data = await response.json()
 
   const articles = data.articles || []
 
-  const headlines = articles.map((a) => ({
-    title: a.title,
-    source: a.source?.name,
-    url: a.url,
-    description: a.description,
-  }))
+  const headlines = articles
+    .map((article) => ({
+      title: article.title || "",
+      source: article.source?.name || "",
+      url: article.url || "",
+      description: article.description || "",
+      publishedAt: article.publishedAt || "",
+    }))
+    .filter((article) => article.title)
 
-  // Filter for relevant headlines
   const filtered = headlines.filter((h) =>
-    /campaign|launch|promotion|partnership|menu|product|advertising|media|audience|brand/i.test(
+    /campaign|launch|partnership|sponsorship|advertising|media|brand|product/i.test(
+      h.title
+    ) &&
+    !/coupon|deal|weekly ad|discount|ranking|review|recipe|grocery/i.test(
       h.title
     )
   )
 
-  const best = filtered[0] || headlines[0] || null
+  const usable = filtered.length > 0 ? filtered : headlines
+  const best = usable[0] || null
 
   return {
-    headlines,
+    headlines: usable,
     best_headline: best ? best.title : "",
-    news_summary: headlines
+    news_summary: usable
       .slice(0, 3)
-      .map((h) => h.title)
+      .map((h) => `${h.title} (${h.source})`)
       .join(" | "),
   }
 }
@@ -145,8 +158,9 @@ Mundial Media:
 - Uses privacy-safe contextual targeting
 - Aligns audience + content + ad
 - Future-proofs media beyond cookies
+- Helps brands show up in culturally relevant, in-culture environments
 
-Return ONLY valid JSON. No markdown.
+Return ONLY valid JSON. No markdown. No code fences.
 
 Fields:
 why_now
@@ -158,10 +172,16 @@ Account:
 Brand: ${account.brand}
 Category: ${account.category}
 Priority: ${account.priority}
-Headline: ${account.best_headline}
-News: ${account.news_summary}
+Best Headline: ${account.best_headline}
+News Summary: ${account.news_summary}
+Mundial Fit Score: ${account.score}
 
-Make it sharp, relevant, and sales-ready.
+Instructions:
+- Use the headline/news only if it is truly relevant.
+- If the news is weak or irrelevant, rely on category, timing, and Mundial Media fit.
+- why_now should be 1-2 sentences.
+- email_body should be a concise first-touch email from Josh at Mundial Media.
+- Make it sharp, relevant, and sales-ready.
 `
 
   const response = await client.responses.create({
@@ -169,14 +189,16 @@ Make it sharp, relevant, and sales-ready.
     input: prompt,
   })
 
+  const text = response.output_text || ""
+
   try {
-    return JSON.parse(response.output_text)
+    return JSON.parse(text)
   } catch {
     return {
-      why_now: "Strong fit based on current activity.",
+      why_now: "Strong fit based on current account context and Mundial Media’s multicultural contextual targeting capabilities.",
       subject_line: `Quick idea for ${account.brand}`,
-      email_body: `Hi — quick idea for ${account.brand} using contextual + multicultural targeting.`,
-      follow_up_email: `Following up — worth a quick chat?`,
+      email_body: `Hi — quick idea for ${account.brand} using privacy-safe contextual targeting to reach multicultural growth audiences. Worth a quick conversation?`,
+      follow_up_email: `Following up here — happy to share a quick idea for how Mundial Media could support ${account.brand}.`,
     }
   }
 }
@@ -184,32 +206,39 @@ Make it sharp, relevant, and sales-ready.
 // ---------- MAIN CRON ----------
 export async function GET() {
   try {
+    if (!process.env.OPENAI_API_KEY) {
+      return NextResponse.json(
+        { error: "OPENAI_API_KEY is missing in Vercel." },
+        { status: 500 }
+      )
+    }
+
     const filePath = path.join(process.cwd(), "public", "accounts.csv")
     const csv = fs.readFileSync(filePath, "utf8")
 
     const accounts = parseCSV(csv)
       .map((row) => ({
-        brand: row.brand,
-        category: row.category,
-        priority: row.priority,
-        notes: row.notes,
-        recent_news: row["recent news"],
+        brand: String(row.brand || "").trim(),
+        category: String(row.category || "").trim(),
+        priority: String(row.priority || "").trim(),
+        notes: String(row.notes || "").trim(),
+        recent_news: String(row["recent news"] || "").trim(),
       }))
       .filter((a) => a.brand)
 
     const enriched = []
 
-    for (const acc of accounts) {
-      const news = await fetchNewsForBrand(acc.brand)
+    for (const account of accounts) {
+      const news = await fetchNewsForBrand(account.brand)
 
-      const full = {
-        ...acc,
+      const fullAccount = {
+        ...account,
         ...news,
       }
 
       enriched.push({
-        ...full,
-        score: scoreAccount(full),
+        ...fullAccount,
+        score: scoreAccount(fullAccount),
       })
     }
 
@@ -219,11 +248,11 @@ export async function GET() {
 
     const results = []
 
-    for (const acc of top4) {
-      const pitch = await generateAIPitch(acc)
+    for (const account of top4) {
+      const pitch = await generateAIPitch(account)
 
       results.push({
-        ...acc,
+        ...account,
         ...pitch,
       })
     }
@@ -236,7 +265,10 @@ export async function GET() {
     })
   } catch (err) {
     return NextResponse.json(
-      { error: "Cron failed", details: err.message },
+      {
+        error: "Cron failed",
+        details: String(err?.message || err),
+      },
       { status: 500 }
     )
   }
