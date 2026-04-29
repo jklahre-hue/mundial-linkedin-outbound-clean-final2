@@ -82,7 +82,7 @@ Mundial Media value proposition:
 - Aligns the right audience, right content, and right ad
 - Helps marketers future-proof media without relying on third-party cookies
 
-Return valid JSON only with exactly these keys:
+Return ONLY raw valid JSON. Do not wrap it in markdown. Do not use ```json. Do not include any explanation.
 why_now
 subject_line
 email_body
