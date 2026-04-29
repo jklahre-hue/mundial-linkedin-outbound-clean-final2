@@ -101,11 +101,11 @@ async function fetchNewsForBrand(brand) {
     }
   }
 
-  const query = `"${brand}" AND (campaign OR marketing OR partnership OR sponsorship OR launch OR "new product" OR advertising OR media OR "brand campaign") NOT (coupon OR deal OR "weekly ad" OR discount OR ranking OR review OR recipe OR grocery)`
+  const query = `"${brand}" AND (marketing OR campaign OR launch OR partnership OR product OR media OR brand)`
 
   const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(
     query
-  )}&language=en&sortBy=publishedAt&pageSize=8&apiKey=${process.env.NEWS_API_KEY}`
+  )}&language=en&sortBy=publishedAt&pageSize=6&apiKey=${process.env.NEWS_API_KEY}`
 
   const response = await fetch(url)
   const data = await response.json()
@@ -113,37 +113,39 @@ async function fetchNewsForBrand(brand) {
   const articles = data.articles || []
 
   const headlines = articles
-    .map((article) => ({
-      title: article.title || "",
-      source: article.source?.name || "",
-      url: article.url || "",
-      description: article.description || "",
-      publishedAt: article.publishedAt || "",
+    .map((a) => ({
+      title: a.title || "",
+      source: a.source?.name || "",
+      url: a.url || "",
     }))
-    .filter((article) => article.title)
+    .filter((h) => h.title)
 
-  const filtered = headlines.filter((h) =>
-    /campaign|launch|partnership|sponsorship|advertising|media|brand|product/i.test(
-      h.title
-    ) &&
-    !/coupon|deal|weekly ad|discount|ranking|review|recipe|grocery/i.test(
-      h.title
-    )
+  // SOFT FILTER (not hard filter)
+  const relevant = headlines.filter((h) =>
+    /campaign|launch|partnership|product|media|brand|advertising/i.test(h.title)
   )
 
-  const usable = filtered.length > 0 ? filtered : headlines
+  // REMOVE obvious junk only
+  const cleaned = relevant.length > 0 ? relevant : headlines
+
+  const final = cleaned.filter(
+    (h) =>
+      !/coupon|deal|weekly ad|discount|ranking|recipe/i.test(h.title)
+  )
+
+  const usable = final.length > 0 ? final : cleaned
+
   const best = usable[0] || null
 
   return {
     headlines: usable,
     best_headline: best ? best.title : "",
     news_summary: usable
-      .slice(0, 3)
+      .slice(0, 2)
       .map((h) => `${h.title} (${h.source})`)
       .join(" | "),
   }
 }
-
 // ---------- AI PITCH ----------
 async function generateAIPitch(account) {
   const client = new OpenAI({
