@@ -3,10 +3,6 @@ import path from "path"
 import OpenAI from "openai"
 import { NextResponse } from "next/server"
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
-
 function cleanHeader(header) {
   return String(header || "")
     .replace(/^\uFEFF/, "")
@@ -42,8 +38,8 @@ function scoreAccount(account) {
   const priority = (account.priority || "").toUpperCase()
   const category = (account.category || "").toLowerCase()
   const notes = (account.notes || "").toLowerCase()
-  const recentNews = (account.recent_news || "").toLowerCase()
-  const combined = `${notes} ${recentNews}`
+  const news = (account.news_summary || "").toLowerCase()
+  const combined = `${notes} ${news}`
 
   if (priority === "A") score += 20
   if (priority === "B") score += 10
@@ -57,13 +53,17 @@ function scoreAccount(account) {
   if (category.includes("health")) score += 10
   if (category.includes("auto")) score += 10
 
+  if (combined.includes("launch")) score += 20
+  if (combined.includes("campaign")) score += 20
+  if (combined.includes("partnership")) score += 15
   if (combined.includes("promotion")) score += 15
   if (combined.includes("lto")) score += 15
-  if (combined.includes("launch")) score += 15
   if (combined.includes("seasonal")) score += 10
   if (combined.includes("sports")) score += 10
-  if (combined.includes("multicultural")) score += 15
-  if (combined.includes("hispanic")) score += 15
+  if (combined.includes("streaming")) score += 10
+  if (combined.includes("multicultural")) score += 20
+  if (combined.includes("hispanic")) score += 20
+  if (combined.includes("gen z")) score += 15
   if (combined.includes("growth audience")) score += 15
   if (combined.includes("contextual")) score += 10
   if (combined.includes("privacy")) score += 10
@@ -71,7 +71,51 @@ function scoreAccount(account) {
   return score
 }
 
+async function fetchNewsForBrand(brand) {
+  if (!process.env.NEWS_API_KEY) {
+    return {
+      headlines: [],
+      best_headline: "",
+      news_summary: "",
+    }
+  }
+
+  const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(
+    `"${brand}"`
+  )}&language=en&sortBy=publishedAt&pageSize=5&apiKey=${process.env.NEWS_API_KEY}`
+
+  const response = await fetch(url)
+  const data = await response.json()
+
+  const articles = data.articles || []
+
+  const headlines = articles
+    .map((article) => ({
+      title: article.title || "",
+      source: article.source?.name || "",
+      url: article.url || "",
+      publishedAt: article.publishedAt || "",
+      description: article.description || "",
+    }))
+    .filter((article) => article.title)
+
+  const best = headlines[0] || null
+
+  return {
+    headlines,
+    best_headline: best ? best.title : "",
+    news_summary: headlines
+      .slice(0, 3)
+      .map((h) => `${h.title} (${h.source})`)
+      .join(" | "),
+  }
+}
+
 async function generateAIPitch(account) {
+  const client = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  })
+
   const prompt = `
 You are writing outbound sales messaging for Mundial Media.
 
@@ -82,7 +126,9 @@ Mundial Media value proposition:
 - Aligns the right audience, right content, and right ad
 - Helps marketers future-proof media without relying on third-party cookies
 
-Return ONLY raw valid JSON. Do not wrap it in markdown. Do not use ```json. Do not include any explanation.
+Return ONLY raw valid JSON. Do not wrap it in markdown. Do not use \`\`\`json. Do not include any explanation.
+
+Return exactly these keys:
 why_now
 subject_line
 email_body
@@ -93,14 +139,16 @@ Brand: ${account.brand}
 Category: ${account.category}
 Priority: ${account.priority}
 Notes: ${account.notes}
-Recent News: ${account.recent_news}
+Best Recent Headline: ${account.best_headline}
+Recent News Summary: ${account.news_summary}
 Mundial Fit Score: ${account.score}
 
 Instructions:
-- why_now should be 1-2 sentences explaining why this account is a timely fit for Mundial Media.
+- why_now should be 1-2 sentences explaining why this account is timely for Mundial Media.
+- Reference the recent headline/news if it is relevant.
 - subject_line should be short and sales-ready.
-- email_body should be a concise first-touch sales email.
-- follow_up_email should be a short follow-up email.
+- email_body should be a concise first-touch sales email from Josh at Mundial Media.
+- follow_up_email should be a short follow-up.
 - Keep the tone professional, sharp, and relevant.
 `
 
@@ -116,7 +164,7 @@ Instructions:
   } catch {
     return {
       why_now:
-        "This account appears to be a strong fit for Mundial Media based on category, priority, and audience relevance.",
+        "This account appears to be a strong fit for Mundial Media based on category, priority, and current market context.",
       subject_line: `Quick idea for ${account.brand}`,
       email_body:
         text ||
@@ -138,7 +186,7 @@ export async function GET() {
     const filePath = path.join(process.cwd(), "public", "accounts.csv")
     const csv = fs.readFileSync(filePath, "utf8")
 
-    const accounts = parseCSV(csv)
+    const baseAccounts = parseCSV(csv)
       .map((row) => ({
         brand: String(row.brand || "").trim(),
         category: String(row.category || "").trim(),
@@ -147,12 +195,26 @@ export async function GET() {
         recent_news: String(row["recent news"] || "").trim(),
       }))
       .filter((row) => row.brand)
-      .map((account) => ({
-        ...account,
-        score: scoreAccount(account),
-      }))
 
-    const top4 = accounts
+    const enrichedAccounts = []
+
+    for (const account of baseAccounts) {
+      const news = await fetchNewsForBrand(account.brand)
+
+      const enriched = {
+        ...account,
+        headlines: news.headlines,
+        best_headline: news.best_headline || account.recent_news || "",
+        news_summary: news.news_summary || account.recent_news || "",
+      }
+
+      enrichedAccounts.push({
+        ...enriched,
+        score: scoreAccount(enriched),
+      })
+    }
+
+    const top4 = enrichedAccounts
       .sort((a, b) => b.score - a.score)
       .slice(0, 4)
 
