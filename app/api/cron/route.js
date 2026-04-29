@@ -3,6 +3,7 @@ import path from "path"
 import OpenAI from "openai"
 import { NextResponse } from "next/server"
 
+// ---------- CSV PARSER ----------
 function cleanHeader(header) {
   return String(header || "")
     .replace(/^\uFEFF/, "")
@@ -32,6 +33,7 @@ function parseCSV(text) {
   })
 }
 
+// ---------- SMART SCORING ----------
 function scoreAccount(account) {
   let score = 50
 
@@ -39,96 +41,114 @@ function scoreAccount(account) {
   const category = (account.category || "").toLowerCase()
   const notes = (account.notes || "").toLowerCase()
   const news = (account.news_summary || "").toLowerCase()
-  const combined = `${notes} ${news}`
+  const headline = (account.best_headline || "").toLowerCase()
 
+  const combined = `${notes} ${news} ${headline}`
+
+  // Priority
   if (priority === "A") score += 20
   if (priority === "B") score += 10
 
+  // Category
   if (category.includes("qsr")) score += 20
   if (category.includes("cpg")) score += 15
-  if (category.includes("retail")) score += 15
   if (category.includes("entertainment")) score += 15
-  if (category.includes("financial")) score += 10
-  if (category.includes("public")) score += 10
-  if (category.includes("health")) score += 10
-  if (category.includes("auto")) score += 10
+  if (category.includes("retail")) score += 15
 
-  if (combined.includes("launch")) score += 20
-  if (combined.includes("campaign")) score += 20
-  if (combined.includes("partnership")) score += 15
-  if (combined.includes("promotion")) score += 15
-  if (combined.includes("lto")) score += 15
-  if (combined.includes("seasonal")) score += 10
-  if (combined.includes("sports")) score += 10
-  if (combined.includes("streaming")) score += 10
-  if (combined.includes("multicultural")) score += 20
-  if (combined.includes("hispanic")) score += 20
-  if (combined.includes("gen z")) score += 15
-  if (combined.includes("growth audience")) score += 15
-  if (combined.includes("contextual")) score += 10
-  if (combined.includes("privacy")) score += 10
+  // 🔥 NEWS = HEAVY WEIGHT
+  if (combined.includes("launch")) score += 35
+  if (combined.includes("campaign")) score += 35
+  if (combined.includes("partnership")) score += 30
+  if (combined.includes("promotion")) score += 30
+  if (combined.includes("menu")) score += 25
+  if (combined.includes("product")) score += 25
+  if (combined.includes("limited time")) score += 35
+  if (combined.includes("lto")) score += 35
+
+  // Marketing signals
+  if (combined.includes("advertising")) score += 25
+  if (combined.includes("media")) score += 20
+  if (combined.includes("sponsorship")) score += 25
+
+  // Mundial fit
+  if (combined.includes("multicultural")) score += 35
+  if (combined.includes("hispanic")) score += 35
+  if (combined.includes("latino")) score += 35
+  if (combined.includes("gen z")) score += 25
+  if (combined.includes("growth")) score += 25
+
+  // Timing
+  if (combined.includes("seasonal")) score += 25
+  if (combined.includes("sports")) score += 25
+  if (combined.includes("world cup")) score += 40
+
+  // Penalize no news
+  if (!news && !headline) score -= 20
 
   return score
 }
 
+// ---------- NEWS FETCH ----------
 async function fetchNewsForBrand(brand) {
   if (!process.env.NEWS_API_KEY) {
-    return {
-      headlines: [],
-      best_headline: "",
-      news_summary: "",
-    }
+    return { headlines: [], best_headline: "", news_summary: "" }
   }
 
-  const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(
-    `"${brand}"`
-  )}&language=en&sortBy=publishedAt&pageSize=5&apiKey=${process.env.NEWS_API_KEY}`
+  const query = `"${brand}" AND (campaign OR marketing OR launch OR partnership OR promotion OR menu OR product OR advertising OR media OR audience OR multicultural OR Hispanic OR sports OR seasonal OR streaming OR brand)`
 
-  const response = await fetch(url)
-  const data = await response.json()
+  const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(
+    query
+  )}&language=en&sortBy=publishedAt&pageSize=6&apiKey=${process.env.NEWS_API_KEY}`
+
+  const res = await fetch(url)
+  const data = await res.json()
 
   const articles = data.articles || []
 
-  const headlines = articles
-    .map((article) => ({
-      title: article.title || "",
-      source: article.source?.name || "",
-      url: article.url || "",
-      publishedAt: article.publishedAt || "",
-      description: article.description || "",
-    }))
-    .filter((article) => article.title)
+  const headlines = articles.map((a) => ({
+    title: a.title,
+    source: a.source?.name,
+    url: a.url,
+    description: a.description,
+  }))
 
-  const best = headlines[0] || null
+  // Filter for relevant headlines
+  const filtered = headlines.filter((h) =>
+    /campaign|launch|promotion|partnership|menu|product|advertising|media|audience|brand/i.test(
+      h.title
+    )
+  )
+
+  const best = filtered[0] || headlines[0] || null
 
   return {
     headlines,
     best_headline: best ? best.title : "",
     news_summary: headlines
       .slice(0, 3)
-      .map((h) => `${h.title} (${h.source})`)
+      .map((h) => h.title)
       .join(" | "),
   }
 }
 
+// ---------- AI PITCH ----------
 async function generateAIPitch(account) {
   const client = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
   })
 
   const prompt = `
-You are writing outbound sales messaging for Mundial Media.
+You are writing outbound sales emails for Mundial Media.
 
-Mundial Media value proposition:
-- Reaches multicultural and growth audiences
+Mundial Media:
+- Reaches multicultural growth audiences
 - Uses privacy-safe contextual targeting
-- Helps brands show up in culturally relevant, in-culture environments
-- Aligns the right audience, right content, and right ad
-- Helps marketers future-proof media without relying on third-party cookies
+- Aligns audience + content + ad
+- Future-proofs media beyond cookies
 
-Return ONLY raw valid JSON. Do not wrap it in markdown. Do not use \`\`\`json. Do not include any explanation.
+Return ONLY valid JSON. No markdown.
 
-Return exactly these keys:
+Fields:
 why_now
 subject_line
 email_body
@@ -138,18 +158,10 @@ Account:
 Brand: ${account.brand}
 Category: ${account.category}
 Priority: ${account.priority}
-Notes: ${account.notes}
-Best Recent Headline: ${account.best_headline}
-Recent News Summary: ${account.news_summary}
-Mundial Fit Score: ${account.score}
+Headline: ${account.best_headline}
+News: ${account.news_summary}
 
-Instructions:
-- why_now should be 1-2 sentences explaining why this account is timely for Mundial Media.
-- Reference the recent headline/news if it is relevant.
-- subject_line should be short and sales-ready.
-- email_body should be a concise first-touch sales email from Josh at Mundial Media.
-- follow_up_email should be a short follow-up.
-- Keep the tone professional, sharp, and relevant.
+Make it sharp, relevant, and sales-ready.
 `
 
   const response = await client.responses.create({
@@ -157,74 +169,61 @@ Instructions:
     input: prompt,
   })
 
-  const text = response.output_text || ""
-
   try {
-    return JSON.parse(text)
+    return JSON.parse(response.output_text)
   } catch {
     return {
-      why_now:
-        "This account appears to be a strong fit for Mundial Media based on category, priority, and current market context.",
+      why_now: "Strong fit based on current activity.",
       subject_line: `Quick idea for ${account.brand}`,
-      email_body:
-        text ||
-        `Hi there — I wanted to reach out because ${account.brand} looks like a strong fit for Mundial Media’s contextual and growth-audience capabilities. Open to a quick conversation?`,
-      follow_up_email: `Hi there — quick follow-up on my note about Mundial Media and ${account.brand}. Happy to share a short idea if useful.`,
+      email_body: `Hi — quick idea for ${account.brand} using contextual + multicultural targeting.`,
+      follow_up_email: `Following up — worth a quick chat?`,
     }
   }
 }
 
+// ---------- MAIN CRON ----------
 export async function GET() {
   try {
-    if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json(
-        { error: "OPENAI_API_KEY is missing in Vercel." },
-        { status: 500 }
-      )
-    }
-
     const filePath = path.join(process.cwd(), "public", "accounts.csv")
     const csv = fs.readFileSync(filePath, "utf8")
 
-    const baseAccounts = parseCSV(csv)
+    const accounts = parseCSV(csv)
       .map((row) => ({
-        brand: String(row.brand || "").trim(),
-        category: String(row.category || "").trim(),
-        priority: String(row.priority || "").trim(),
-        notes: String(row.notes || "").trim(),
-        recent_news: String(row["recent news"] || "").trim(),
+        brand: row.brand,
+        category: row.category,
+        priority: row.priority,
+        notes: row.notes,
+        recent_news: row["recent news"],
       }))
-      .filter((row) => row.brand)
+      .filter((a) => a.brand)
 
-    const enrichedAccounts = []
+    const enriched = []
 
-    for (const account of baseAccounts) {
-      const news = await fetchNewsForBrand(account.brand)
+    for (const acc of accounts) {
+      const news = await fetchNewsForBrand(acc.brand)
 
-      const enriched = {
-        ...account,
-        headlines: news.headlines,
-        best_headline: news.best_headline || account.recent_news || "",
-        news_summary: news.news_summary || account.recent_news || "",
+      const full = {
+        ...acc,
+        ...news,
       }
 
-      enrichedAccounts.push({
-        ...enriched,
-        score: scoreAccount(enriched),
+      enriched.push({
+        ...full,
+        score: scoreAccount(full),
       })
     }
 
-    const top4 = enrichedAccounts
+    const top4 = enriched
       .sort((a, b) => b.score - a.score)
       .slice(0, 4)
 
     const results = []
 
-    for (const account of top4) {
-      const pitch = await generateAIPitch(account)
+    for (const acc of top4) {
+      const pitch = await generateAIPitch(acc)
 
       results.push({
-        ...account,
+        ...acc,
         ...pitch,
       })
     }
@@ -235,12 +234,9 @@ export async function GET() {
       count: results.length,
       top4: results,
     })
-  } catch (error) {
+  } catch (err) {
     return NextResponse.json(
-      {
-        error: "Cron workflow failed.",
-        details: String(error?.message || error),
-      },
+      { error: "Cron failed", details: err.message },
       { status: 500 }
     )
   }
