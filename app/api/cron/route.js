@@ -34,63 +34,25 @@ function parseCSV(text) {
 }
 
 // ---------- SCORING ----------
-function scoreAccount(account) {
-  let score = 50
+function scoreAccount(account, news) {
+  let score = 0
 
-  const priority = (account.priority || "").toUpperCase()
-  const category = (account.category || "").toLowerCase()
-  const notes = (account.notes || "").toLowerCase()
-  const news = (account.news_summary || "").toLowerCase()
-  const headline = (account.best_headline || "").toLowerCase()
-  const combined = `${notes} ${news} ${headline}`
+  // Priority
+  if (account.priority === "A") score += 30
+  if (account.priority === "B") score += 15
 
-  if (priority === "A") score += 20
-  if (priority === "B") score += 10
+  // Category (QSR / CPG are your sweet spot)
+  if (["QSR", "CPG"].includes(account.category)) score += 20
 
-  if (category.includes("qsr")) score += 20
-  if (category.includes("cpg")) score += 15
-  if (category.includes("entertainment")) score += 15
-  if (category.includes("retail")) score += 15
-  if (category.includes("financial")) score += 10
-  if (category.includes("public")) score += 10
-  if (category.includes("health")) score += 10
-  if (category.includes("auto")) score += 10
+  // Existing notes
+  if (account.notes) score += 10
 
-  if (combined.includes("launch")) score += 35
-  if (combined.includes("campaign")) score += 35
-  if (combined.includes("partnership")) score += 30
-  if (combined.includes("sponsorship")) score += 30
-  if (combined.includes("advertising")) score += 25
-  if (combined.includes("media")) score += 20
-  if (combined.includes("brand campaign")) score += 35
-  if (combined.includes("new product")) score += 30
-  if (combined.includes("product line")) score += 25
-  if (combined.includes("limited time")) score += 25
-  if (combined.includes("lto")) score += 25
-  if (combined.includes("menu")) score += 20
-
-  if (combined.includes("multicultural")) score += 35
-  if (combined.includes("hispanic")) score += 35
-  if (combined.includes("latino")) score += 35
-  if (combined.includes("gen z")) score += 25
-  if (combined.includes("growth audience")) score += 35
-  if (combined.includes("culture")) score += 20
-  if (combined.includes("cultural")) score += 20
-
-  if (combined.includes("seasonal")) score += 15
-  if (combined.includes("sports")) score += 25
-  if (combined.includes("world cup")) score += 40
-
-  if (combined.includes("contextual")) score += 20
-  if (combined.includes("privacy")) score += 20
-  if (combined.includes("cookieless")) score += 25
-  if (combined.includes("third-party cookies")) score += 25
-
-  if (!news && !headline) score -= 20
+  // 🔥 THIS IS THE BIG CHANGE
+  if (news.headlines.length > 0) score += 60
+  if (news.best_headline) score += 40
 
   return score
 }
-
 // ---------- NEWS FETCH ----------
 async function fetchNewsForBrand(brand) {
   if (!process.env.NEWS_API_KEY) {
@@ -101,11 +63,12 @@ async function fetchNewsForBrand(brand) {
     }
   }
 
-  const query = `"${brand}"`
+  // MUCH LOOSER QUERY
+  const query = `${brand} OR ${brand} brand OR ${brand} marketing OR ${brand} launch`
 
   const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(
     query
-  )}&language=en&sortBy=publishedAt&pageSize=10&apiKey=${process.env.NEWS_API_KEY}`
+  )}&language=en&sortBy=publishedAt&pageSize=15&apiKey=${process.env.NEWS_API_KEY}`
 
   const response = await fetch(url)
   const data = await response.json()
@@ -113,18 +76,20 @@ async function fetchNewsForBrand(brand) {
   const articles = data.articles || []
 
   const headlines = articles
-    .map((article) => ({
-      title: article.title || "",
-      source: article.source?.name || "",
-      url: article.url || "",
-      description: article.description || "",
-      publishedAt: article.publishedAt || "",
+    .map((a) => ({
+      title: a.title || "",
+      source: a.source?.name || "",
+      url: a.url || "",
+      description: a.description || "",
+      publishedAt: a.publishedAt || "",
     }))
-    .filter((article) => article.title)
+    .filter((a) => a.title)
+
+    // 🔥 MUCH LOOSER FILTER (this was killing you before)
     .filter(
-      (article) =>
-        !/coupon|deal|weekly ad|discount|ranking|review|recipe|grocery|promo code/i.test(
-          `${article.title} ${article.description}`
+      (a) =>
+        !/coupon|promo code|grocery ad|weekly ad/i.test(
+          `${a.title} ${a.description}`
         )
     )
 
