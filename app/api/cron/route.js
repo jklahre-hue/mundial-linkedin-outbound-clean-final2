@@ -101,11 +101,11 @@ async function fetchNewsForBrand(brand) {
     }
   }
 
-  const query = `"${brand}" AND (marketing OR campaign OR launch OR partnership OR product OR media OR brand)`
+  const query = `"${brand}"`
 
   const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(
     query
-  )}&language=en&sortBy=publishedAt&pageSize=6&apiKey=${process.env.NEWS_API_KEY}`
+  )}&language=en&sortBy=publishedAt&pageSize=10&apiKey=${process.env.NEWS_API_KEY}`
 
   const response = await fetch(url)
   const data = await response.json()
@@ -113,35 +113,28 @@ async function fetchNewsForBrand(brand) {
   const articles = data.articles || []
 
   const headlines = articles
-    .map((a) => ({
-      title: a.title || "",
-      source: a.source?.name || "",
-      url: a.url || "",
+    .map((article) => ({
+      title: article.title || "",
+      source: article.source?.name || "",
+      url: article.url || "",
+      description: article.description || "",
+      publishedAt: article.publishedAt || "",
     }))
-    .filter((h) => h.title)
+    .filter((article) => article.title)
+    .filter(
+      (article) =>
+        !/coupon|deal|weekly ad|discount|ranking|review|recipe|grocery|promo code/i.test(
+          `${article.title} ${article.description}`
+        )
+    )
 
-  // SOFT FILTER (not hard filter)
-  const relevant = headlines.filter((h) =>
-    /campaign|launch|partnership|product|media|brand|advertising/i.test(h.title)
-  )
-
-  // REMOVE obvious junk only
-  const cleaned = relevant.length > 0 ? relevant : headlines
-
-  const final = cleaned.filter(
-    (h) =>
-      !/coupon|deal|weekly ad|discount|ranking|recipe/i.test(h.title)
-  )
-
-  const usable = final.length > 0 ? final : cleaned
-
-  const best = usable[0] || null
+  const best = headlines[0] || null
 
   return {
-    headlines: usable,
+    headlines,
     best_headline: best ? best.title : "",
-    news_summary: usable
-      .slice(0, 2)
+    news_summary: headlines
+      .slice(0, 3)
       .map((h) => `${h.title} (${h.source})`)
       .join(" | "),
   }
