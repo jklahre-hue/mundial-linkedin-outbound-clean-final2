@@ -34,22 +34,22 @@ function parseCSV(text) {
 }
 
 // ---------- SCORING ----------
-function scoreAccount(account, news) {
+function scoreAccount(account) {
   let score = 0
 
-  // Priority
-  if (account.priority === "A") score += 30
-  if (account.priority === "B") score += 15
+  const priority = (account.priority || "").toUpperCase()
+  const category = (account.category || "").toUpperCase()
+  const notes = account.notes || ""
 
-  // Category (QSR / CPG are your sweet spot)
-  if (["QSR", "CPG"].includes(account.category)) score += 20
+  if (priority === "A") score += 30
+  if (priority === "B") score += 15
 
-  // Existing notes
-  if (account.notes) score += 10
+  if (["QSR", "CPG"].includes(category)) score += 20
 
-  // 🔥 THIS IS THE BIG CHANGE
-  if (news.headlines.length > 0) score += 60
-  if (news.best_headline) score += 40
+  if (notes) score += 10
+
+  if ((account.headlines || []).length > 0) score += 60
+  if (account.best_headline) score += 40
 
   return score
 }
