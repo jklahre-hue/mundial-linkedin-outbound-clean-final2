@@ -202,20 +202,13 @@ export async function GET() {
       })
     }
 
-    const top4 = enriched
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 4)
+  const topCandidates = enriched
+  .sort((a, b) => b.score - a.score)
+  .slice(0, 20)
 
-    const results = []
+const shuffled = topCandidates.sort(() => Math.random() - 0.5)
 
-    for (const account of top4) {
-      const pitch = await generateAIPitch(account)
-
-      results.push({
-        ...account,
-        ...pitch,
-      })
-    }
+const top4 = shuffled.slice(0, 4)
 
     return NextResponse.json({
       success: true,
